@@ -41,21 +41,25 @@ A Lucene index must be created before creating the region.
 
         $ gfsh run --file=scripts/start.gfsh
 
-4. Run the example to populate both the Lucene index and `example-region`. The data
-will also be retrieved from the region and printed to the console.
+4. Run the example to populate both and `example-region` and `simpleIndex`.
+The data will also be retrieved from the region and printed to the console.
 
         $ ../gradlew run
 
-## Try ```gfsh``` commands that interact with the region and do Lucene searches
-1. Run a `gfsh` command to see the contents of the region
+## Try `gfsh` commands that interact with the region and do Lucene searches
+
+1. Start `gfsh` command and connect to the cluster:
 
         $ gfsh
         ...
         gfsh>connect --locators=127.0.0.1[10334]
+
+2. Use a `gfsh` query to see the contents of the region:
+
         gfsh>query --query="select * from /example-region"
         ...
 
-    Note that the quantity of entries may also be observed with `gfsh`:
+    The quantity of entries may also be observed with `gfsh`:
 
         gfsh>describe region --name=example-region
         ..........................................................
@@ -71,33 +75,46 @@ will also be retrieved from the region and printed to the console.
         Region | size        | 10
                | data-policy | PARTITION
 
-2. Try different Lucene searches for data in example-region
+2.  Each server that holds partitioned data for this region has the
+`simpleIndex`.  The Lucene index is co-located with `example-region`.
+Try various Lucene searches.
 
-        gfsh> list lucene indexes --with_stats
+    To see details of the index, increase screen width and issue the command:
 
-    Note that each server that holds partitioned data for this region has the ```simpleIndex```. The Lucene index is stored as a co-located region with the partitioned data region.
+        gfsh> list lucene indexes --with-stats
 
-     // Search for an exact name match
+
+    Search for an exact name match with a `lastName` field of `Jive`:
+
         gfsh>search lucene --name=simpleIndex --region=example-region --queryStrings="Jive" --defaultField=lastName
 
-     // Search for a name that sounds like 'ive'
+    Search for a `lastName` field that sounds like 'ive':
+
         gfsh>search lucene --name=simpleIndex --region=example-region --queryStrings="ive~" --defaultField=lastName
 
-     // Do a compound search on first and last name
+    Do a compound search that considers both first and last name. The
+    `--defaultField` argument must be specified, but does not contribute
+    anything to this particular query, since both field names within the
+    query string are qualified.
+
         gfsh>search lucene --name=simpleIndex --region=example-region --queryStrings="firstName:at~ OR lastName:ive~" --defaultField=lastName
 
-
-3. Examine the Lucene index statistics
+3.  Statistics on the Lucene index show the fields that are indexed as well
+as the Lucene analyzer used for each field. Additional statistics listed
+are the number of documents (region entries) indexed, the number of entries
+committed, as well as the number of queries executed for each Lucene index.
+Examine the Lucene index statistics with:
 
         gfsh>describe lucene index --name=simpleIndex --region=example-region
 
-    Note the statistic show the fields that are indexed and the Lucene analyzer used for each field. In the next example we will specify a different Lucene analyzer for each field. Additional statistics listed are the number of documents (region entries) indexed, number of entries committed as well as the number of queries executed for each Lucene index.
 
-4. Shut down the cluster
+4. Shut down the cluster and exit `gfsh`, answering `Y` when prompted:
 
-        $ gfsh run --file=scripts/stop.gfsh
+        gfsh>run --file=scripts/stop.gfsh
+        gfsh>exit
 
-5. Clean up any generated directories and files so this example can be rerun.
+5. Clean up the generated directories and files so that this example
+can be rerun from the step that invokes the `start.gfsh` script.
     
         $ ../gradlew cleanServer
 
