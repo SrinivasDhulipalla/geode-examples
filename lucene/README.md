@@ -35,13 +35,14 @@ Each step in this example specifies paths relative to that directory.
 
         $ ../gradlew build
 
-3. Run a script that starts a locator and two servers, creates a Lucene index
-called ```simpleIndex```, and then creates the ```example-region``` region.
+3. Run a script that starts a locator and two servers, creates 2 Lucene indexes,
+one called ```simpleIndex``` and another called ```analyzerIndex```. The script 
+then creates the ```example-region``` region.
 A Lucene index must be created before creating the region.
 
         $ gfsh run --file=scripts/start.gfsh
 
-4. Run the example to populate both and `example-region` and `simpleIndex`.
+4. Run the example to populate the `example-region` and both `simpleIndex` and `analyzerIndex`.
 The data will also be retrieved from the region and printed to the console.
 
         $ ../gradlew run
@@ -50,63 +51,40 @@ The data will also be retrieved from the region and printed to the console.
 
 1. Start `gfsh` command and connect to the cluster:
 
-        $ gfsh
+       $ gfsh
         ...
-        gfsh>connect --locators=127.0.0.1[10334]
-
-2. Use a `gfsh` query to see the contents of the region:
-
-        gfsh>query --query="select * from /example-region"
+       gfsh>connect --locators=127.0.0.1[10334]
+       gfsh>query --query="select * from /example-region"
         ...
 
-    The quantity of entries may also be observed with `gfsh`:
+2. Try different Lucene searches for data in example-region
 
-        gfsh>describe region --name=example-region
-        ..........................................................
-        Name            : example-region
-        Data Policy     : partition
-        Hosting Members : server2
-                          server1
+       gfsh> list lucene indexes --with-stats
 
-        Non-Default Attributes Shared By Hosting Members  
+    Note that each server that holds partitioned data for this region has the 
+```simpleIndex``` and the ```analyzerIndex```.  Each Lucene index is stored as a 
+co-located region with the partitioned data region.
 
-         Type  |    Name     | Value
-        ------ | ----------- | ---------
-        Region | size        | 10
-               | data-policy | PARTITION
+    // Search for an exact name match with a `lastName` field of `Jive`:
+       gfsh>search lucene --name=simpleIndex --region=example-region --queryStrings="Jive" --defaultField=lastName
 
-2.  Each server that holds partitioned data for this region has the
-`simpleIndex`.  The Lucene index is co-located with `example-region`.
-Try various Lucene searches.
+    // Search for a `lastName` using fuzzy logic: sounds like 'ive':
+       gfsh>search lucene --name=simpleIndex --region=example-region --queryStrings="ive~" --defaultField=lastName
 
-    To see details of the index, increase screen width and issue the command:
+    // Do a compound search that considers both first and last name using fuzzy 'sounds like' logic
+       gfsh>search lucene --name=simpleIndex --region=example-region --queryStrings="firstName:at~ OR lastName:ive~" --defaultField=lastName
 
-        gfsh> list lucene indexes --with-stats
+    // Do a compound search for last name and email using analyzerIndex
+       gfsh>search lucene --name=analyzerIndex --region=example-region --queryStrings="lastName:hall~ AND email:Kris.Call@example.com" --defaultField=lastName
 
+3. Examine the Lucene index statistics
+  
+       gfsh>describe lucene index --name=simpleIndex --region=example-region
 
-    Search for an exact name match with a `lastName` field of `Jive`:
-
-        gfsh>search lucene --name=simpleIndex --region=example-region --queryStrings="Jive" --defaultField=lastName
-
-    Search for a `lastName` field that sounds like 'ive':
-
-        gfsh>search lucene --name=simpleIndex --region=example-region --queryStrings="ive~" --defaultField=lastName
-
-    Do a compound search that considers both first and last name. The
-    `--defaultField` argument must be specified, but does not contribute
-    anything to this particular query, since both field names within the
-    query string are qualified.
-
-        gfsh>search lucene --name=simpleIndex --region=example-region --queryStrings="firstName:at~ OR lastName:ive~" --defaultField=lastName
-
-3.  Statistics on the Lucene index show the fields that are indexed as well
-as the Lucene analyzer used for each field. Additional statistics listed
-are the number of documents (region entries) indexed, the number of entries
-committed, as well as the number of queries executed for each Lucene index.
-Examine the Lucene index statistics with:
-
-        gfsh>describe lucene index --name=simpleIndex --region=example-region
-
+   Note the statistics show the fields that are indexed and the Lucene analyzer used 
+for each field. Additional statistics listed are the number of documents (region entries) 
+indexed, the number of entries committed, as well as the number of queries executed for 
+each Lucene index.
 
 4. Shut down the cluster and exit `gfsh`, answering `Y` when prompted:
 
