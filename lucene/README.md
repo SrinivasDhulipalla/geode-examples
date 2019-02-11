@@ -35,64 +35,66 @@ Each step in this example specifies paths relative to that directory.
 
         $ ../gradlew build
 
-3. Run a script that starts a locator and two servers, creates 2 Lucene indexes,
-one called ```simpleIndex``` and another called ```analyzerIndex```. The script 
-then creates the ```example-region``` region.
+3. Run a script that starts a locator and two servers, creates a Lucene index
+called ```simpleIndex```, and then creates the ```example-region``` region.
 A Lucene index must be created before creating the region.
 
         $ gfsh run --file=scripts/start.gfsh
 
-4. Run the example to populate the `example-region` and both `simpleIndex` and `analyzerIndex`.
-The data will also be retrieved from the region and printed to the console.
+4. Run the example to populate both the Lucene index and `example-region`. The data
+will also be retrieved from the region and printed to the console.
 
         $ ../gradlew run
 
-## Try `gfsh` commands that interact with the region and do Lucene searches
+## Try ```gfsh``` commands that interact with the region and do Lucene searches
+1. Run a `gfsh` command to see the contents of the region
 
-1. Start `gfsh` command and connect to the cluster:
-
-       $ gfsh
+        $ gfsh
         ...
-       gfsh>connect --locators=127.0.0.1[10334]
-       gfsh>query --query="select * from /example-region"
+        gfsh>connect --locator=localhost[10334]
+        gfsh>query --query="select * from /example-region"
         ...
 
 2. Try different Lucene searches for data in example-region
 
-       gfsh> list lucene indexes --with-stats
+        gfsh> list lucene indexes
 
-    Note that each server that holds partitioned data for this region has the 
-```simpleIndex``` and the ```analyzerIndex```.  Each Lucene index is stored as a 
-co-located region with the partitioned data region.
+    Note that each server that holds partitioned data for this region has both the ```simpleIndex``` , ```analyzerIndex``` and the ```nestedObjectIndex```. Each Lucene index is stored as a co-located region with the partitioned data region.
 
-    // Search for an exact name match with a `lastName` field of `Jive`:
-       gfsh>search lucene --name=simpleIndex --region=example-region --queryStrings="Jive" --defaultField=lastName
+     // Search for an exact name match
+        gfsh>search lucene --name=simpleIndex --region=example-region --queryStrings="Jive" --defaultField=lastName
 
-    // Search for a `lastName` using fuzzy logic: sounds like 'ive':
-       gfsh>search lucene --name=simpleIndex --region=example-region --queryStrings="ive~" --defaultField=lastName
+     // Search for last name using fuzzy logic: sounds like 'chive'
+        gfsh>search lucene --name=simpleIndex --region=example-region --queryStrings="chive~" --defaultField=lastName
 
-    // Do a compound search that considers both first and last name using fuzzy 'sounds like' logic
-       gfsh>search lucene --name=simpleIndex --region=example-region --queryStrings="firstName:at~ OR lastName:ive~" --defaultField=lastName
+     // Do a compound search on first and last name using fuzzy sounds like logic
+        gfsh>search lucene --name=simpleIndex --region=example-region --queryStrings="firstName:cat~ OR lastName:chive~" --defaultField=lastName
 
-    // Do a compound search for last name and email using analyzerIndex
-       gfsh>search lucene --name=analyzerIndex --region=example-region --queryStrings="lastName:hall~ AND email:Kris.Call@example.com" --defaultField=lastName
+     // Do a compound search on last name and email using analyzerIndex
+        gfsh>search lucene --name=analyzerIndex --region=example-region --queryStrings="lastName:hall~ AND email:Kris.Call@example.com" --defaultField=lastName
+
+     // Do a compound search on nested object with both 5035330001 AND 5036430001 in contacts
+     // Note: 5035330001 is the phone number of one of the contacts, 5036430001 is phone number of another contact. Since they are both contacts of this employee, it will lead to this employee. 
+        gfsh>search lucene --name=nestedObjectIndex --region=/example-region --queryString="5035330001 AND 5036430001" --defaultField=contacts.phoneNumbers
+
+     // If query on 5035330001 AND 5036430002, it will not find the person, because the 2 phone numbers belong to different people's contacts. 
+        gfsh>search lucene --name=nestedObjectIndex --region=/example-region --queryString="5035330001 AND 5036430002" --defaultField=contacts.phoneNumbers
+
+     // If query on 5035330001 OR 5036430002, it will find 2 people's entries
+        gfsh>search lucene --name=nestedObjectIndex --region=/example-region --queryString="5035330001 OR 5036430002" --defaultField=contacts.phoneNumbers
 
 3. Examine the Lucene index statistics
-  
-       gfsh>describe lucene index --name=simpleIndex --region=example-region
 
-   Note the statistics show the fields that are indexed and the Lucene analyzer used 
-for each field. Additional statistics listed are the number of documents (region entries) 
-indexed, the number of entries committed, as well as the number of queries executed for 
-each Lucene index.
+        gfsh>describe lucene index --name=simpleIndex --region=example-region
 
-4. Shut down the cluster and exit `gfsh`, answering `Y` when prompted:
+    Note the statistic show the fields that are indexed and the Lucene analyzer used for each field. In the next example we will specify a different Lucene analyzer for each field. Additional statistics listed are the number of documents (region entries) indexed, number of entries committed as well as the number of queries executed for each Lucene index.
 
-        gfsh>run --file=scripts/stop.gfsh
+4. Exit gfsh and shut down the cluster
+
         gfsh>exit
+        $ gfsh run --file=scripts/stop.gfsh
 
-5. Clean up the generated directories and files so that this example
-can be rerun from the step that invokes the `start.gfsh` script.
+5. Clean up any generated directories and files so this example can be rerun.
     
         $ ../gradlew cleanServer
 

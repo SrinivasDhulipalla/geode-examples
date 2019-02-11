@@ -12,8 +12,10 @@ build/
 .idea/
 build-eclipse/
 /tags
+out/
 
 locator
+server
 server1
 server2
 
